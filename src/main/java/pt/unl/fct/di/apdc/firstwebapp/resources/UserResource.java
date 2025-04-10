@@ -20,7 +20,7 @@ public class UserResource {
     public UserResource() {}
 
     @POST
-    @Path("register")
+    @Path("/register")
     public Response registerUser() {
 
         return null;

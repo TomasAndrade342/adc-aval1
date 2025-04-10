@@ -33,4 +33,9 @@ public class StartupInitializer implements ServletContextListener {
             System.out.println("Conta root criada com sucesso.");
         }
     }
+
+    @Override
+    public void contextDestroyed(ServletContextEvent sce) {
+        // Código para shutdown (se precisares)
+    }
 }
