@@ -58,7 +58,8 @@ public class User {
     }
 
     private boolean isValidEmail() {
-        String[] parts = password.split("@");
+        if (!nonEmptyOrBlankField(email)) return false;
+        String[] parts = email.split("@");
         if (parts.length == 2 && !parts[0].isBlank() && !parts[1].isBlank()) {
             String domain = parts[1];
             return domain.contains(".");
