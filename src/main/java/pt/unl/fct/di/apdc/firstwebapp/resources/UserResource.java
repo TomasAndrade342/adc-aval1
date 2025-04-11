@@ -43,6 +43,6 @@ public class UserResource {
             LOG.log(Level.ALL, e.toString());
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getReason()).build();
         }
-        return null;
+        return Response.ok().build();
     }
 }
