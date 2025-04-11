@@ -20,13 +20,13 @@ public class StartupInitializer implements ServletContextListener {
         if (datastore.get(rootKey) == null) {
             Entity rootUser = Entity.newBuilder(rootKey)
                     .set("email", "root@admin.pt")
-                    .set("username", "root")
-                    .set("nome", "System Root Administrator")
-                    .set("telefone", "+123456789")
+                    .set("userName", "root")
+                    .set("name", "System Root Administrator")
+                    .set("phoneNum", "+123456789")
                     .set("password", DigestUtils.sha512Hex("Root123!!"))
-                    .set("perfil", "private")
-                    .set("role", "admin")
-                    .set("estado", "active")
+                    .set("isPublic", false)
+                    .set("role", "ADMIN")
+                    .set("accountState", "ACTIVE")
                     .build();
 
             datastore.put(rootUser);
@@ -36,6 +36,6 @@ public class StartupInitializer implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        // Código para shutdown (se precisares)
+        // Is this needed?
     }
 }
