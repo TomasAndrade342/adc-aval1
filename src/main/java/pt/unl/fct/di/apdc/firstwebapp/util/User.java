@@ -129,21 +129,23 @@ public class User {
     }
 
     public Entity asEntity(Key userKey) {
-        return Entity.newBuilder(userKey)
+        Entity.Builder builder = Entity.newBuilder(userKey)
                 .set("email", this.email)
                 .set("userName", this.userName)
                 .set("fullName", this.fullName)
                 .set("phoneNum", this.phoneNum)
                 .set("password", DigestUtils.sha512Hex(this.password))
                 .set("isPublic", this.isPublic)
-                .set("ccNum", this.ccNum)
                 .set("role", "ENDUSER")
-                .set("nif", this.nif)
-                .set("employer", this.employer)
-                .set("function", this.function)
-                .set("address", this.address)
-                .set("employerNif", this.employerNif)
-                .set("accountState", "DEACTIVATED")
-                .build();
+                .set("accountState", "DEACTIVATED");
+
+        if (this.ccNum != null) builder.set("ccNum", this.ccNum);
+        if (this.nif != 0) builder.set("nif", this.nif);
+        if (this.employer != null) builder.set("employer", this.employer);
+        if (this.function != null) builder.set("function", this.function);
+        if (this.address != null) builder.set("address", this.address);
+        if (this.employerNif != 0) builder.set("employerNif", this.employerNif);
+
+        return builder.build();
     }
 }
