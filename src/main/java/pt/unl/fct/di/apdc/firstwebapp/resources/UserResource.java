@@ -213,7 +213,7 @@ public class UserResource {
     @POST
     @Path("/remove")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response removeUser(RemoveData data, HttpHeaders headers) {
+    public Response removeUser(RemoveData data, @Context HttpHeaders headers) {
         LOG.fine("User removal attempt by: " + data.userName);
 
         String magicVal = headers.getHeaderString("magicVal");
