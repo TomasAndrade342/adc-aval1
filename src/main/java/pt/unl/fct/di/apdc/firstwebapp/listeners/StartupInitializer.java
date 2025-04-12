@@ -21,7 +21,7 @@ public class StartupInitializer implements ServletContextListener {
             Entity rootUser = Entity.newBuilder(rootKey)
                     .set("email", "root@admin.pt")
                     .set("userName", "root")
-                    .set("name", "System Root Administrator")
+                    .set("fullName", "System Root Administrator")
                     .set("phoneNum", "+123456789")
                     .set("password", DigestUtils.sha512Hex("Root123!!"))
                     .set("isPublic", false)

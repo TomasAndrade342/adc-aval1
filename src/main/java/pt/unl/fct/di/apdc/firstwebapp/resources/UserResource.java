@@ -133,7 +133,7 @@ public class UserResource {
             Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
             Entity tokenEntity = datastore.get(tokenKey);
 
-            if (tokenEntity == null || !magicVal.equals(headers.getHeaderString("magicVal"))) {
+            if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
                 return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
             }
             long expirationDate = tokenEntity.getLong("expirationDate");
