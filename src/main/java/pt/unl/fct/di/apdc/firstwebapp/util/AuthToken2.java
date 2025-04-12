@@ -20,7 +20,7 @@ public class AuthToken2 {
         this.userName = userName;
         this.role = role;
         this.creationDate = System.currentTimeMillis();
-        this.expirationDate = this.creationDate - EXPIRATION_TIME;
+        this.expirationDate = this.creationDate + EXPIRATION_TIME;
         this.magicVal = UUID.randomUUID().toString();
     }
 }
