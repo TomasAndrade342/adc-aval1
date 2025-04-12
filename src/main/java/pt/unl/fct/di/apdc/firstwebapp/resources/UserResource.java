@@ -201,7 +201,7 @@ public class UserResource {
         }
         else {
             Entity newRoleUser = Entity.newBuilder(target)
-                    .set("state", data.state)
+                    .set("accountState", data.state)
                     .build();
             datastore.put(newRoleUser);
             LOG.info("State update successful by user: " + data.userName);
