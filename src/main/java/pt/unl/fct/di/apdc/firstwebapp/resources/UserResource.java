@@ -224,9 +224,6 @@ public class UserResource {
         Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
         Entity user = datastore.get(userKey);
 
-        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
-        Entity target = datastore.get(targetKey);
-
         if (user == null) {
             LOG.warning("Failed login attempt for: " + data.userName);
             return Response.status(Response.Status.FORBIDDEN)
@@ -241,6 +238,37 @@ public class UserResource {
                     .build();
         }
 
+        Key targetKey;
+        Entity target;
+
+        if (data.targetUserName == null) {
+            if (data.email == null) {
+                LOG.warning("Failed user removal attempt for: " + data.userName);
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("No username or email.")
+                        .build();
+            }
+
+            Query<Entity> query = Query.newEntityQueryBuilder()
+                    .setKind("User")
+                    .setFilter(StructuredQuery.PropertyFilter.eq("email", data.email))
+                    .build();
+            QueryResults<Entity> results = datastore.run(query);
+
+            if (!results.hasNext()) {
+                LOG.warning("Failed user removal attempt for: " + data.userName);
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("No user with email")
+                        .build();
+            }
+            target = results.next();
+            targetKey = target.getKey();
+        }
+        else {
+            targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
+            target = datastore.get(targetKey);
+        }
+
         if (user.getString("role").equals("BACKOFFICE") &&
                 !target.getString("role").equals("ENDUSER") && !target.getString("role").equals("PARTNER")) {
             LOG.warning("Failed login attempt for: " + data.userName);
@@ -249,35 +277,8 @@ public class UserResource {
                     .build();
         }
 
-        if (target != null) {
-            datastore.delete(targetKey);
-            LOG.info("User removal successful by user: " + data.userName);
-            return Response.ok().build();
-        }
-        else if (data.email != null) {
-            Query<Entity> query = Query.newEntityQueryBuilder()
-                    .setKind("User")
-                    .setFilter(StructuredQuery.PropertyFilter.eq("email", data.email))
-                    .build();
-            QueryResults<Entity> results = datastore.run(query);
-
-            if (results.hasNext()) {
-                Entity queryUser = results.next();
-                datastore.delete(queryUser.getKey());
-                LOG.info("User removal successful by user: " + data.userName);
-                return Response.ok().build();
-            } else {
-                LOG.warning("Failed user removal attempt for: " + data.userName);
-                return Response.status(Response.Status.NOT_FOUND)
-                        .entity("No user with email")
-                        .build();
-            }
-        }
-        else {
-            LOG.warning("Failed user removal attempt for: " + data.userName);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("No username or email.")
-                    .build();
-        }
+        datastore.delete(targetKey);
+        LOG.info("User removal successful by user: " + data.userName);
+        return Response.ok().build();
     }
 }
