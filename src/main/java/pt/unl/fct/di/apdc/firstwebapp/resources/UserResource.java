@@ -278,6 +278,9 @@ public class UserResource {
         }
 
         datastore.delete(targetKey);
+
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(target.getString("userName"));
+        datastore.delete(tokenKey);
         LOG.info("User removal successful by user: " + data.userName);
         return Response.ok().build();
     }
