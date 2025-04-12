@@ -2,17 +2,17 @@ package pt.unl.fct.di.apdc.firstwebapp.resources;
 
 import com.google.cloud.datastore.*;
 import com.google.gson.Gson;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.codec.digest.DigestUtils;
-import pt.unl.fct.di.apdc.firstwebapp.util.AuthToken;
-import pt.unl.fct.di.apdc.firstwebapp.util.AuthToken2;
-import pt.unl.fct.di.apdc.firstwebapp.util.LoginData;
-import pt.unl.fct.di.apdc.firstwebapp.util.User;
+import pt.unl.fct.di.apdc.firstwebapp.util.*;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -89,6 +89,64 @@ public class UserResource {
             else {
                 LOG.warning("Wrong password for: " + data.username);
                 return Response.status(Response.Status.FORBIDDEN).entity("Incorrect username or password").build();
+            }
+        }
+    }
+
+    @POST
+    @Path("/role")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response changeRole(RoleData data, @Context HttpHeaders headers) {
+        LOG.fine("Role change attempt by: " + data.userName);
+
+        String magicVal = headers.getHeaderString("magicVal");
+
+        if (magicVal == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
+        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
+
+        Entity user = datastore.get(userKey);
+        Entity target = datastore.get(targetKey);
+
+        if (user == null || target == null) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User(s) don't exist.")
+                    .build();
+        }
+        else if (user.getString("role").equals("ENDUSER") || user.getString("role").equals("PARTNER")) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Not allowed to change role.")
+                    .build();
+        }
+        else if (user.getString("role").equals("BACKOFFICE") && !data.role.equals("ENDUSER") && !data.role.equals("PARTNER")) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Invalid operation for backoffice.")
+                    .build();
+        }
+        else {
+            Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
+            Entity tokenEntity = datastore.get(tokenKey);
+
+            if (tokenEntity == null || !magicVal.equals(headers.getHeaderString("magicVal"))) {
+                return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+            }
+            long expirationDate = tokenEntity.getLong("expirationDate");
+            if (expirationDate < System.currentTimeMillis()) {
+                return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
+            }
+            else {
+                Entity newRoleUser = Entity.newBuilder(targetKey)
+                        .set("role", data.role)
+                        .build();
+                datastore.put(newRoleUser);
+                LOG.info("Role update successful by user: " + data.userName);
+                return Response.ok().build();
             }
         }
     }

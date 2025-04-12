@@ -19,7 +19,7 @@ public class AuthToken {
 		this.username = username;
 		this.tokenID = UUID.randomUUID().toString();
 		this.creationData = System.currentTimeMillis();
-		this.expirationData = this.creationData - EXPIRATION_TIME;
+		this.expirationData = this.creationData + EXPIRATION_TIME;
 	}
 	
 }
