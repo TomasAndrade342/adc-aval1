@@ -141,7 +141,7 @@ public class UserResource {
                 return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
             }
             else {
-                Entity newRoleUser = Entity.newBuilder(targetKey)
+                Entity newRoleUser = Entity.newBuilder(target)
                         .set("role", data.role)
                         .build();
                 datastore.put(newRoleUser);
