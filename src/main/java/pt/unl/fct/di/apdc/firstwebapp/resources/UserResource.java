@@ -117,37 +117,47 @@ public class UserResource {
                     .entity("User(s) don't exist.")
                     .build();
         }
-        else if (user.getString("role").equals("ENDUSER") || user.getString("role").equals("PARTNER")) {
+
+        if (user.getString("role").equals("ENDUSER") || user.getString("role").equals("PARTNER")) {
             LOG.warning("Failed login attempt for: " + data.userName);
             return Response.status(Response.Status.FORBIDDEN)
                     .entity("Not allowed for current role.")
                     .build();
         }
-        else if (user.getString("role").equals("BACKOFFICE") && !data.role.equals("ENDUSER") && !data.role.equals("PARTNER")) {
-            LOG.warning("Failed login attempt for: " + data.userName);
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity("Invalid operation for backoffice.")
-                    .build();
+
+        if (user.getString("role").equals("BACKOFFICE")) {
+            String targetRole = target.getString("role");
+            String newRole = data.role;
+
+            boolean targetHasValidRole = targetRole.equals("ENDUSER") || targetRole.equals("PARTNER");
+            boolean newRoleIsValid = newRole.equals("ENDUSER") || newRole.equals("PARTNER");
+
+            // If either the current state or the requested state is invalid, reject the operation
+            if (!targetHasValidRole || !newRoleIsValid) {
+                LOG.warning("Invalid role change attempt by user: " + data.userName);
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Invalid operation for backoffice.")
+                        .build();
+            }
+        }
+
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+        }
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
         }
         else {
-            Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
-            Entity tokenEntity = datastore.get(tokenKey);
-
-            if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
-                return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
-            }
-            long expirationDate = tokenEntity.getLong("expirationDate");
-            if (expirationDate < System.currentTimeMillis()) {
-                return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
-            }
-            else {
-                Entity newRoleUser = Entity.newBuilder(target)
-                        .set("role", data.role)
-                        .build();
-                datastore.put(newRoleUser);
-                LOG.info("Role update successful by user: " + data.userName);
-                return Response.ok().build();
-            }
+            Entity newRoleUser = Entity.newBuilder(target)
+                    .set("role", data.role)
+                    .build();
+            datastore.put(newRoleUser);
+            LOG.info("Role update successful by user: " + data.userName);
+            return Response.ok().build();
         }
     }
 
@@ -182,12 +192,20 @@ public class UserResource {
                     .build();
         }
 
-        if (user.getString("role").equals("BACKOFFICE") &&
-                (user.getString("state").equals("ACTIVE") || user.getString("state").equals("DEACTIVATED"))) {
-            LOG.warning("Failed login attempt for: " + data.userName);
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity("Invalid operation for backoffice.")
-                    .build();
+        if (user.getString("role").equals("BACKOFFICE")) {
+            String targetState = target.getString("accountState");
+            String newState = data.state;
+
+            boolean targetHasValidState = targetState.equals("ACTIVE") || targetState.equals("DEACTIVATED");
+            boolean newStateIsValid = newState.equals("ACTIVE") || newState.equals("DEACTIVATED");
+
+            // If either the current state or the requested state is invalid, reject the operation
+            if (!targetHasValidState || !newStateIsValid) {
+                LOG.warning("Invalid state change attempt by BACKOFFICE user: " + data.userName);
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Invalid operation for backoffice.")
+                        .build();
+            }
         }
 
         Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
