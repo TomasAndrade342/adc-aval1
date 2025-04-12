@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Response;
 import org.apache.commons.codec.digest.DigestUtils;
 import pt.unl.fct.di.apdc.firstwebapp.util.*;
 
+import javax.print.attribute.standard.Media;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -206,6 +207,76 @@ public class UserResource {
             datastore.put(newRoleUser);
             LOG.info("State update successful by user: " + data.userName);
             return Response.ok().build();
+        }
+    }
+
+    @POST
+    @Path("/remove")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response removeUser(RemoveData data, HttpHeaders headers) {
+        LOG.fine("User removal attempt by: " + data.userName);
+
+        String magicVal = headers.getHeaderString("magicVal");
+        if (magicVal == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
+        Entity user = datastore.get(userKey);
+
+        if (user == null) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User doesn't exist.")
+                    .build();
+        }
+
+        if (!user.getString("role").equals("ADMIN") && !user.getString("role").equals("BACKOFFICE")) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Not allowed for current role.")
+                    .build();
+        }
+
+        if (user.getString("role").equals("BACKOFFICE") &&
+                !user.getString("role").equals("ENDUSER") && !user.getString("role").equals("PARTNER")) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Invalid operation for backoffice.")
+                    .build();
+        }
+        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
+        Entity target = datastore.get(targetKey);
+
+        if (target != null) {
+            datastore.delete(targetKey);
+            LOG.info("User removal successful by user: " + data.userName);
+            return Response.ok().build();
+        }
+        else if (data.email != null) {
+            Query<Entity> query = Query.newEntityQueryBuilder()
+                    .setKind("User")
+                    .setFilter(StructuredQuery.PropertyFilter.eq("email", data.email))
+                    .build();
+            QueryResults<Entity> results = datastore.run(query);
+
+            if (results.hasNext()) {
+                Entity queryUser = results.next();
+                datastore.delete(queryUser.getKey());
+                LOG.info("User removal successful by user: " + data.userName);
+                return Response.ok().build();
+            } else {
+                LOG.warning("Failed user removal attempt for: " + data.userName);
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("No user with email")
+                        .build();
+            }
+        }
+        else {
+            LOG.warning("Failed user removal attempt for: " + data.userName);
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("No username or email.")
+                    .build();
         }
     }
 }
