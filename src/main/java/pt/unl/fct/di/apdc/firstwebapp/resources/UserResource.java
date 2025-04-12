@@ -2,7 +2,6 @@ package pt.unl.fct.di.apdc.firstwebapp.resources;
 
 import com.google.cloud.datastore.*;
 import com.google.gson.Gson;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -14,7 +13,8 @@ import jakarta.ws.rs.core.Response;
 import org.apache.commons.codec.digest.DigestUtils;
 import pt.unl.fct.di.apdc.firstwebapp.util.*;
 
-import javax.print.attribute.standard.Media;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -301,5 +301,81 @@ public class UserResource {
         datastore.delete(tokenKey);
         LOG.info("User removal successful by user: " + data.userName);
         return Response.ok().build();
+    }
+
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response listUsers(ListUsersData data, @Context HttpHeaders headers) {
+        LOG.fine("Users list attempt by: " + data.userName);
+
+        String magicVal = headers.getHeaderString("magicVal");
+        if (magicVal == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
+        Entity user = datastore.get(userKey);
+
+        if (user == null) {
+            LOG.warning("Failed login attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User doesn't exist.")
+                    .build();
+        }
+
+        String role = user.getString("role");
+        switch(role) {
+            case "ENDUSER":
+                Query<Entity> query = Query.newEntityQueryBuilder()
+                        .setKind("User")
+                        .setFilter(StructuredQuery.CompositeFilter.and(
+                                StructuredQuery.PropertyFilter.eq("role", "ENDUSER"),
+                                StructuredQuery.PropertyFilter.eq("isPublic", true),
+                                StructuredQuery.PropertyFilter.eq("accountState", "ACTIVE")
+                        ))
+                        .build();
+                QueryResults<Entity> results = datastore.run(query);
+
+                List<FilteredUser> filteredUsers = new ArrayList<>();
+                results.forEachRemaining(result -> {
+                    FilteredUser newUser = new FilteredUser(result.getString("userName"), result.getString("email"), result.getString("fullName"));
+                    filteredUsers.add(newUser);
+                });
+
+                return Response.ok(g.toJson(filteredUsers)).build();
+            case "BACKOFFICE":
+                query = Query.newEntityQueryBuilder()
+                        .setKind("User")
+                        .setFilter(StructuredQuery.PropertyFilter.eq("role", "ENDUSER"))
+                        .build();
+                results = datastore.run(query);
+
+                List<JsonUser> users = new ArrayList<>();
+                results.forEachRemaining(result -> {
+                    JsonUser newUser = new JsonUser(result);
+                    users.add(newUser);
+                });
+
+                return Response.ok(g.toJson(users)).build();
+            case "ADMIN":
+                query = Query.newEntityQueryBuilder()
+                        .setKind("User")
+                        .build();
+                results = datastore.run(query);
+
+                users = new ArrayList<>();
+                results.forEachRemaining(result -> {
+                    JsonUser newUser = new JsonUser(result);
+                    users.add(newUser);
+                });
+
+                return Response.ok(g.toJson(users)).build();
+            default:
+                LOG.warning("Failed users list attempt for: " + data.userName);
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Not allowed for current role.")
+                        .build();
+        }
     }
 }
