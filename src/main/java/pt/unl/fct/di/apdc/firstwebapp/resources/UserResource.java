@@ -224,6 +224,9 @@ public class UserResource {
         Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
         Entity user = datastore.get(userKey);
 
+        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
+        Entity target = datastore.get(targetKey);
+
         if (user == null) {
             LOG.warning("Failed login attempt for: " + data.userName);
             return Response.status(Response.Status.FORBIDDEN)
@@ -239,14 +242,12 @@ public class UserResource {
         }
 
         if (user.getString("role").equals("BACKOFFICE") &&
-                !user.getString("role").equals("ENDUSER") && !user.getString("role").equals("PARTNER")) {
+                !target.getString("role").equals("ENDUSER") && !target.getString("role").equals("PARTNER")) {
             LOG.warning("Failed login attempt for: " + data.userName);
             return Response.status(Response.Status.FORBIDDEN)
                     .entity("Invalid operation for backoffice.")
                     .build();
         }
-        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
-        Entity target = datastore.get(targetKey);
 
         if (target != null) {
             datastore.delete(targetKey);
