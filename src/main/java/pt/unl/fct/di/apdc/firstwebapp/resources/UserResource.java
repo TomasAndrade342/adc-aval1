@@ -463,4 +463,39 @@ public class UserResource {
                         .build();
         }
     }
+
+    @POST
+    @Path("/password")
+    public Response changePassword(ChangePassData data, @Context HttpHeaders headers) {
+        LOG.fine("Attempt to change password by: " + data.userName);
+
+        String magicVal = headers.getHeaderString("magicVal");
+        if (magicVal == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
+        Entity user = datastore.get(userKey);
+
+        if (user == null || !user.getString("password").equals(DigestUtils.sha512Hex(data.password))) {
+            LOG.warning("Failed password change attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Incorrect username or password.")
+                    .build();
+        }
+        else if (!data.newPassword.equals(data.newPasswordAgain)) {
+            LOG.warning("Failed password change attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Passwords don't match.")
+                    .build();
+        }
+        else {
+            Entity newPassUser = Entity.newBuilder(user)
+                    .set("password", DigestUtils.sha512Hex(data.newPassword))
+                    .build();
+            datastore.put(newPassUser);
+            LOG.info("Password change successful by user: " + data.userName);
+            return Response.ok().build();
+        }
+    }
 }
