@@ -306,7 +306,7 @@ public class UserResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response listUsers(ListUsersData data, @Context HttpHeaders headers) {
+    public Response listUsers(UserNameData data, @Context HttpHeaders headers) {
         LOG.fine("Users list attempt by: " + data.userName);
 
         String magicVal = headers.getHeaderString("magicVal");
@@ -494,6 +494,41 @@ public class UserResource {
                     .set("password", DigestUtils.sha512Hex(data.newPassword))
                     .build();
             datastore.put(newPassUser);
+            LOG.info("Password change successful by user: " + data.userName);
+            return Response.ok().build();
+        }
+    }
+    @POST
+    @Path("/logout")
+    public Response sessionLogout(UserNameData data, @Context HttpHeaders headers) {
+        LOG.fine("Logout attempt by: " + data.userName);
+
+        String magicVal = headers.getHeaderString("magicVal");
+        if (magicVal == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
+        Entity user = datastore.get(userKey);
+
+        if (user == null) {
+            LOG.warning("Failed logout attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User isn't registered.")
+                    .build();
+        }
+
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null) {
+            LOG.warning("Failed logout attempt for: " + data.userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User isn't logged in.")
+                    .build();
+        }
+        else {
+            datastore.delete(tokenKey);
             LOG.info("Password change successful by user: " + data.userName);
             return Response.ok().build();
         }

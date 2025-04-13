@@ -1,13 +1,13 @@
 package pt.unl.fct.di.apdc.firstwebapp.util;
 
-public class ListUsersData {
+public class UserNameData {
     public String userName;
 
-    public ListUsersData() {
+    public UserNameData() {
 
     }
 
-    public ListUsersData(String userName) {
+    public UserNameData(String userName) {
         this.userName = userName;
     }
 }
