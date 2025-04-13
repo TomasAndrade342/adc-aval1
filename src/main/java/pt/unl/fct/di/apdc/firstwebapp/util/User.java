@@ -148,4 +148,25 @@ public class User {
 
         return builder.build();
     }
+
+    public Entity getUpdatedUser(Entity originalUser) {
+        Entity.Builder builder = Entity.newBuilder(originalUser);
+
+        if (this.email != null) builder.set("email", this.email);
+        if (this.userName != null) builder.set("userName", this.userName);
+        if (this.fullName != null) builder.set("fullName", this.fullName);
+        if (this.phoneNum != null) builder.set("phoneNum", this.phoneNum);
+        if (this.password != null) builder.set("password", this.password);
+        builder.set("isPublic", this.isPublic);
+        if (this.role != null) builder.set("role", this.role);
+        if (this.accountState != null) builder.set("accountState", this.accountState);
+        if (this.ccNum != null) builder.set("ccNum", this.ccNum);
+        if (this.nif != 0) builder.set("nif", this.nif);
+        if (this.employer != null) builder.set("employer", this.employer);
+        if (this.function != null) builder.set("function", this.function);
+        if (this.address != null) builder.set("address", this.address);
+        if (this.employerNif != 0) builder.set("employerNif", this.employerNif);
+
+        return builder.build();
+    }
 }
