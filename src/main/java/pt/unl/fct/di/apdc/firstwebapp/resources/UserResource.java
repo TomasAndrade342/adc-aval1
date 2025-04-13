@@ -382,6 +382,7 @@ public class UserResource {
     // userName of the user using the endpoint must be inserted into the headers
     @POST
     @Path("/update")
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response updateUser(User user, @Context HttpHeaders headers) {
         LOG.fine("Attempt to modify user: " + user.userName);
 
@@ -466,6 +467,7 @@ public class UserResource {
 
     @POST
     @Path("/password")
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response changePassword(ChangePassData data, @Context HttpHeaders headers) {
         LOG.fine("Attempt to change password by: " + data.userName);
 
@@ -500,6 +502,7 @@ public class UserResource {
     }
     @POST
     @Path("/logout")
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response sessionLogout(UserNameData data, @Context HttpHeaders headers) {
         LOG.fine("Logout attempt by: " + data.userName);
 
