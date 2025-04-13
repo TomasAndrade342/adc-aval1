@@ -116,9 +116,17 @@ public class User {
         return nif >= 0 && (nif == 0 || numDigits == 9);
     }
 
-    public boolean isFullyValid() {
-        return hasMandatoryFields() &&
-                notBlankIfNotNull(ccNum) &&
+    public boolean fieldsAreValid() {
+        return this.email == null || isValidEmail() &&
+                notBlankIfNotNull(this.userName) &&
+                notBlankIfNotNull(this.fullName) &&
+                notBlankIfNotNull(this.phoneNum) &&
+                this.password == null || isValidPassword() &&
+                optionalFieldsValid();
+    }
+
+    public boolean optionalFieldsValid() {
+        return notBlankIfNotNull(ccNum) &&
                 (notBlankIfNotNull(role) || isValidRole()) &&
                 isValidNif(nif) &&
                 notBlankIfNotNull(employer) &&
@@ -126,6 +134,10 @@ public class User {
                 notBlankIfNotNull(address) &&
                 isValidNif(employerNif) &&
                 (notBlankIfNotNull(accountState) || isValidState());
+    }
+
+    public boolean isFullyValid() {
+        return hasMandatoryFields() && optionalFieldsValid();
     }
 
     public Entity asEntity(Key userKey) {

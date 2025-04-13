@@ -394,7 +394,7 @@ public class UserResource {
         Key operatorKey = datastore.newKeyFactory().setKind("User").newKey(headers.getHeaderString("userName"));
         Entity operator = datastore.get(operatorKey);
 
-        if (!user.isFullyValid()) {
+        if (!user.fieldsAreValid()) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing or wrong parameters.").build();
         }
 
