@@ -388,21 +388,23 @@ public class UserResource {
         String magicVal = headers.getHeaderString("magicVal");
         if (magicVal == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
-        } // TODO: actually verify if magicVal is equal to magicVal of the operator
+        } // TODO: actually verify if magicVal is equal to magicVal of the operator and that token is valid everywhere
         // TODO: check if all involved users are in the db
 
-        Key operatorKey = datastore.newKeyFactory().setKind("User").newKey(headers.getHeaderString("userName"));
+        String operatorUserName = headers.getHeaderString("userName");
+        Key operatorKey = datastore.newKeyFactory().setKind("User").newKey(operatorUserName);
         Entity operator = datastore.get(operatorKey);
 
         if (!user.fieldsAreValid()) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing or wrong parameters.").build();
         }
 
-        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(user.userName);
+        String targetUserName = headers.getHeaderString("targetUserName");
+        Key targetKey = datastore.newKeyFactory().setKind("User").newKey(targetUserName);
         Entity target = datastore.get(targetKey);
 
         if (target == null) {
-            LOG.warning("Failed update attempt for: " + headers.getHeaderString("userName"));
+            LOG.warning("Failed update attempt for: " + operatorUserName);
             return Response.status(Response.Status.FORBIDDEN)
                     .entity("Target isn't registered.")
                     .build();
@@ -413,10 +415,10 @@ public class UserResource {
         String role = operator.getString("role");
         switch (role) {
             case "ENDUSER":
-                if (operator.getString("userName").equals(target.getString("userName"))) {
+                if (operator.getString("userName").equals(targetUserName)) {
                     if (user.userName != null || user.email != null || user.fullName != null || user.role != null
                             || user.accountState != null) {
-                        LOG.warning("Failed update attempt for: " + headers.getHeaderString("userName"));
+                        LOG.warning("Failed update attempt for: " + operatorUserName);
                         return Response.status(Response.Status.FORBIDDEN)
                                 .entity("Fields can't be updated.")
                                 .build();
@@ -424,12 +426,12 @@ public class UserResource {
                     else {
                         datastore.put(user.getUpdatedUser(target));
 
-                        LOG.info("Login successful by user: " + user.userName);
+                        LOG.info("Login successful by user: " + operatorUserName);
                         return Response.ok().build();
                     }
                 }
                 else {
-                    LOG.warning("Failed update attempt for: " + target.getString("userName"));
+                    LOG.warning("Failed update attempt for: " + targetUserName);
                     return Response.status(Response.Status.FORBIDDEN)
                             .entity("Can't modify a different account.")
                             .build();
@@ -438,7 +440,7 @@ public class UserResource {
                 boolean targetValidRole = target.getString("role").equals("ENDUSER") || target.getString("role").equals("PARTNER");
                 if (!operator.getString("accountState").equals("ACTIVE") || ! targetValidRole ||
                     user.userName != null || user.email != null || user.role.equals("SUSPENDED")) {
-                    LOG.warning("Failed update attempt for: " + target.getString("userName"));
+                    LOG.warning("Failed update attempt for: " + targetUserName);
                     return Response.status(Response.Status.FORBIDDEN)
                             .entity("Invalid operation for backoffice.")
                             .build();
@@ -446,16 +448,16 @@ public class UserResource {
                 else {
                     datastore.put(user.getUpdatedUser(target));
 
-                    LOG.info("Login successful by user: " + user.userName);
+                    LOG.info("Successful update attempt for: " + targetUserName);
                     return Response.ok().build();
                 }
             case "ADMIN":
                 datastore.put(user.getUpdatedUser(target));
 
-                LOG.info("Login successful by user: " + user.userName);
+                LOG.info("Successful update attempt for: " + targetUserName);
                 return Response.ok().build();
             default:
-                LOG.warning("Failed update attempt for: " + target.getString("userName"));
+                LOG.warning("Failed update attempt for: " + targetUserName);
                 return Response.status(Response.Status.FORBIDDEN)
                         .entity("Not allowed for current role.")
                         .build();
