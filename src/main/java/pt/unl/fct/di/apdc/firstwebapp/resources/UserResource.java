@@ -70,6 +70,12 @@ public class UserResource {
                     .entity("Incorrect username or password.")
                     .build();
         }
+        else if (user.getString("role").equals("DEACTIVATED")) {
+            LOG.warning("Failed login attempt for: " + data.username);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User is deactivated.")
+                    .build();
+        }
         else {
             String hashedPassword = user.getString("password");
             if (hashedPassword.equals(DigestUtils.sha512Hex(data.password))) {
@@ -588,8 +594,8 @@ public class UserResource {
             }
 
             if (workSheet != null && workSheet.getBoolean("isAdjudicated") && ws.isAdjudicated
-                && user.getString("role").equals("PARTNER")
-                    && !workSheet.getString("partnerUserName").equals(user.getString("userName"))) {
+                && !(user.getString("role").equals("PARTNER")
+                    && !workSheet.getString("partnerUserName").equals(user.getString("userName")))) {
                 LOG.warning("Failed worksheet creation attempt for: " + userName);
                 return Response.status(Response.Status.FORBIDDEN)
                         .entity("Operation only allowed for adjudicating partner.")
