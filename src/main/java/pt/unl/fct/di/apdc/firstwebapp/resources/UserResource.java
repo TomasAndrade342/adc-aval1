@@ -13,7 +13,6 @@ import jakarta.ws.rs.core.Response;
 import org.apache.commons.codec.digest.DigestUtils;
 import pt.unl.fct.di.apdc.firstwebapp.util.*;
 
-import javax.print.attribute.standard.Media;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -22,7 +21,7 @@ import java.util.logging.Logger;
 @Path("/users")
 public class UserResource {
 
-    private static final Logger LOG = Logger.getLogger(RegisterResource.class.getName());
+    private static final Logger LOG = Logger.getLogger(UserResource.class.getName());
     private static final Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
 
     private final Gson g = new Gson();
@@ -79,7 +78,7 @@ public class UserResource {
         else {
             String hashedPassword = user.getString("password");
             if (hashedPassword.equals(DigestUtils.sha512Hex(data.password))) {
-                AuthToken2 token = new AuthToken2(data.username, user.getString("role"));
+                AuthToken token = new AuthToken(data.username, user.getString("role"));
                 Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.username);
                 Entity tokenEntity = Entity.newBuilder(tokenKey)
                         .set("userName", token.userName)
@@ -246,6 +245,17 @@ public class UserResource {
             return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
         }
 
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+        }
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
+        }
+
         Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
         Entity user = datastore.get(userKey);
 
@@ -292,6 +302,12 @@ public class UserResource {
         else {
             targetKey = datastore.newKeyFactory().setKind("User").newKey(data.targetUserName);
             target = datastore.get(targetKey);
+            if (target == null) {
+                LOG.warning("Failed user removal attempt for: " + data.userName);
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("target does not exist in the database.")
+                        .build();
+            }
         }
 
         if (user.getString("role").equals("BACKOFFICE") &&
@@ -304,7 +320,6 @@ public class UserResource {
 
         datastore.delete(targetKey);
 
-        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(target.getString("userName"));
         datastore.delete(tokenKey);
         LOG.info("User removal successful by user: " + data.userName);
         return Response.ok().build();
@@ -319,6 +334,17 @@ public class UserResource {
         String magicVal = headers.getHeaderString("magicVal");
         if (magicVal == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+        }
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
         }
 
         Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
@@ -396,12 +422,22 @@ public class UserResource {
         String magicVal = headers.getHeaderString("magicVal");
         if (magicVal == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
-        } // TODO: actually verify if magicVal is equal to magicVal of the operator and that token is valid everywhere
-        // TODO: check if all involved users are in the db
+        }
 
         String operatorUserName = headers.getHeaderString("userName");
         Key operatorKey = datastore.newKeyFactory().setKind("User").newKey(operatorUserName);
         Entity operator = datastore.get(operatorKey);
+
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(operatorUserName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+        }
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
+        }
 
         if (!user.fieldsAreValid()) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Missing or wrong parameters.").build();
@@ -411,14 +447,12 @@ public class UserResource {
         Key targetKey = datastore.newKeyFactory().setKind("User").newKey(targetUserName);
         Entity target = datastore.get(targetKey);
 
-        if (target == null) {
+        if (target == null || operator == null) {
             LOG.warning("Failed update attempt for: " + operatorUserName);
             return Response.status(Response.Status.FORBIDDEN)
-                    .entity("Target isn't registered.")
+                    .entity("Target or operator isn't registered.")
                     .build();
         }
-
-
 
         String role = operator.getString("role");
         switch (role) {
@@ -483,6 +517,17 @@ public class UserResource {
             return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
         }
 
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+        }
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
+        }
+
         Key userKey = datastore.newKeyFactory().setKind("User").newKey(data.userName);
         Entity user = datastore.get(userKey);
 
@@ -532,17 +577,17 @@ public class UserResource {
         Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.userName);
         Entity tokenEntity = datastore.get(tokenKey);
 
-        if (tokenEntity == null) {
-            LOG.warning("Failed logout attempt for: " + data.userName);
-            return Response.status(Response.Status.FORBIDDEN)
-                    .entity("User isn't logged in.")
-                    .build();
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
         }
-        else {
-            datastore.delete(tokenKey);
-            LOG.info("Password change successful by user: " + data.userName);
-            return Response.ok().build();
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
         }
+
+        datastore.delete(tokenKey);
+        LOG.info("Password change successful by user: " + data.userName);
+        return Response.ok().build();
     }
 
     @POST
@@ -566,22 +611,18 @@ public class UserResource {
             return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
         }
 
+        Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(userName);
+        Entity tokenEntity = datastore.get(tokenKey);
+
+        if (tokenEntity == null || !magicVal.equals(tokenEntity.getString("magicVal"))) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token is wrong.").build();
+        }
+        long expirationDate = tokenEntity.getLong("expirationDate");
+        if (expirationDate < System.currentTimeMillis()) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Token expired.").build();
+        }
+
         if (ws.isValid()) {
-            /**
-            Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.username);
-            Entity tokenEntity = Entity.newBuilder(tokenKey)
-                    .set("userName", token.userName)
-                    .set("role", token.role)
-                    .set("creationDate", token.creationDate)
-                    .set("expirationDate", token.expirationDate)
-                    .set("magicVal", token.magicVal)
-                    .build();
-
-            datastore.put(tokenEntity);
-
-            LOG.info("Login successful by user: " + data.username);
-            return Response.ok(g.toJson(token)).build();
-             */
 
             Key workSheetKey = datastore.newKeyFactory().setKind("WorkSheet").newKey(ws.workSheetID);
             Entity workSheet = datastore.get(workSheetKey);
