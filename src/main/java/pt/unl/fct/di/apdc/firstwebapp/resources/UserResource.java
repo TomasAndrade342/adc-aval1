@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.Response;
 import org.apache.commons.codec.digest.DigestUtils;
 import pt.unl.fct.di.apdc.firstwebapp.util.*;
 
+import javax.print.attribute.standard.Media;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -500,6 +501,7 @@ public class UserResource {
             return Response.ok().build();
         }
     }
+
     @POST
     @Path("/logout")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -534,6 +536,100 @@ public class UserResource {
             datastore.delete(tokenKey);
             LOG.info("Password change successful by user: " + data.userName);
             return Response.ok().build();
+        }
+    }
+
+    @POST
+    @Path("/worksheet")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response workSheet(WorkSheet ws, @Context HttpHeaders headers) {
+        String userName = headers.getHeaderString("userName");
+        LOG.fine("Worksheet creation attempt by: " + userName);
+
+        Key userKey = datastore.newKeyFactory().setKind("User").newKey(userName);
+        Entity user = datastore.get(userKey);
+        if (user == null) {
+            LOG.warning("Failed worksheet creation attempt for: " + userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("User isn't registered.")
+                    .build();
+        }
+
+        String magicVal = headers.getHeaderString("magicVal");
+        if (magicVal == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Authentication token is missing.").build();
+        }
+
+        if (ws.isValid()) {
+            /**
+            Key tokenKey = datastore.newKeyFactory().setKind("AuthToken").newKey(data.username);
+            Entity tokenEntity = Entity.newBuilder(tokenKey)
+                    .set("userName", token.userName)
+                    .set("role", token.role)
+                    .set("creationDate", token.creationDate)
+                    .set("expirationDate", token.expirationDate)
+                    .set("magicVal", token.magicVal)
+                    .build();
+
+            datastore.put(tokenEntity);
+
+            LOG.info("Login successful by user: " + data.username);
+            return Response.ok(g.toJson(token)).build();
+             */
+
+            Key workSheetKey = datastore.newKeyFactory().setKind("WorkSheet").newKey(ws.workSheetID);
+            Entity workSheet = datastore.get(workSheetKey);
+
+            if (workSheet != null && !user.getString("role").equals("BACKOFFICE")) {
+                LOG.warning("Failed worksheet creation attempt for: " + userName);
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Operation only allowed for backoffice.")
+                        .build();
+            }
+
+            if (workSheet != null && workSheet.getBoolean("isAdjudicated") && ws.isAdjudicated
+                && user.getString("role").equals("PARTNER")
+                    && !workSheet.getString("partnerUserName").equals(user.getString("userName"))) {
+                LOG.warning("Failed worksheet creation attempt for: " + userName);
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Operation only allowed for adjudicating partner.")
+                        .build();
+            }
+
+            Entity.Builder builder;
+            if (workSheet == null) {
+                builder = Entity.newBuilder(workSheetKey);
+            }
+            else {
+                builder = Entity.newBuilder(workSheet);
+            }
+
+            builder = builder.set("workSheetID", ws.workSheetID)
+                    .set("description", ws.description)
+                    .set("propertyType", ws.propertyType)
+                    .set("isAdjudicated", ws.isAdjudicated);
+
+            if (ws.isAdjudicated) {
+                    builder = builder.set("adjudicationDate", ws.adjudicationDate)
+                            .set("startDate", ws.startDate)
+                            .set("endDate", ws.endDate)
+                            .set("partnerUserName", ws.partnerUserName)
+                            .set("adjudicationEntity", ws.adjudicationEntity)
+                            .set("companyNif", ws.companyNif)
+                            .set("workState", ws.workState)
+                            .set("observations", ws.observations);
+            }
+
+            Entity workSheetEntity = builder.build();
+            datastore.put(workSheetEntity);
+            LOG.info("Worksheet creation successful by: " + userName);
+            return Response.ok(g.toJson(ws)).build();
+        }
+        else {
+            LOG.warning("Failed worksheet creation attempt for: " + userName);
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Invalid worksheet.")
+                    .build();
         }
     }
 }
